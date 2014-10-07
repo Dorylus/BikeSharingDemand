@@ -41,6 +41,17 @@ combi$windspeedrange[combi$windspeed > 16 & combi$windspeed <= 19] <- '16-19'
 combi$windspeedrange[combi$windspeed > 19 & combi$windspeed <= 30] <- '19-30'
 combi$windspeedrange[combi$windspeed > 30] <- '30+'
 
+combi$datetime <- as.character(combi$datetime)
+combi$hour <- sapply(combi$datetime, FUN=function(x) {strsplit(x, split='[ .]')[[1]][2]})
+combi$hour <- sapply(combi$hour, FUN=function(x) {strsplit(x, split='[:.]')[[1]][1]})
+
+combi$hourrange <- '0-7'
+combi$hourrange[combi$hour > 7 & combi$hour <= 12] <- '7-12'
+combi$hourrange[combi$hour > 12 & combi$hour <= 16] <- '12-16'
+combi$hourrange[combi$hour > 16 & combi$hour <= 20] <- '16-20'
+combi$hourrange[combi$hour > 20] <- '20+'
+
+combi$hourrange <- factor(combi$hourrange)
 combi$temprange <- factor(combi$temprange)
 combi$atemprange <- factor(combi$atemprange)
 combi$humidityrange <- factor(combi$humidityrange)
@@ -51,8 +62,8 @@ test <- combi[10887:17379,]
 
 # Build Random Forest Ensemble
 set.seed(415)
-fit <- randomForest(as.factor(count) ~ season + holiday + workingday + weather + temprange + atemprange + windspeedrange + humidityrange,
-                    data=train, importance=TRUE, ntree=1000)
+fit <- randomForest(as.factor(count) ~ hourrange + season + holiday + workingday + weather + temprange + atemprange + windspeedrange + humidityrange,
+                    data=train, importance=TRUE, ntree=500)
 
 # Look at variable importance
 varImpPlot(fit)
