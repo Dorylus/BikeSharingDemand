@@ -83,7 +83,7 @@ formula <- count ~ season + holiday + workingday + weather + temp + atemp + humi
 #build our model
 # Build Random Forest Ensemble
 set.seed(415)
-fit <- randomForest(formula, data=train_factor, importance=TRUE, ntree=3000)
+fit <- randomForest(formula, data=train_factor, importance=TRUE, ntree=500)
 
 # Look at variable importance
 varImpPlot(fit)
