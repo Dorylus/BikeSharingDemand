@@ -2,9 +2,6 @@ setwd("~/Documents/GitHub/BikeSharingDemand/R")
 train <- read.csv("../csv/train.csv")
 test <- read.csv("../csv/test.csv")
 
-library('party')
-library('randomForest')
-
 #factorize training set
 train_factor <- train
 train_factor$weather <- factor(train$weather)
@@ -75,19 +72,23 @@ test_factor$daypart <- as.factor(test_factor$daypart)
 train_factor$hour <- as.factor(train_factor$hour)
 test_factor$hour <- as.factor(test_factor$hour)
 
-
+install.packages('party')
+library('party')
 
 #create our formula
 formula <- count ~ season + holiday + workingday + weather + temp + atemp + humidity + hour + daypart + sunday
 
 #build our model
-# Build Random Forest Ensemble
-set.seed(415)
-fit <- randomForest(formula, data=train_factor, importance=TRUE, ntree=3000)
+fit.ctree <- ctree(formula, data=train_factor)
 
-# Look at variable importance
-varImpPlot(fit)
-# Now let's make a prediction and write a submission file
-Prediction <- predict(fit, test_factor)
-submit <- data.frame(datetime = test$datetime, count = Prediction)
-write.csv(submit, file = "firstforest.csv", row.names = FALSE)
+#examine model for variable importance
+fit.ctree
+
+#run model against test data set
+predict.ctree <- predict(fit.ctree, test_factor)
+
+#build a dataframe with our results
+submit.ctree <- data.frame(datetime = test$datetime, count=predict.ctree)
+
+#write results to .csv for submission
+write.csv(submit.ctree, file="submit_ctree_v1.csv",row.names=FALSE)
