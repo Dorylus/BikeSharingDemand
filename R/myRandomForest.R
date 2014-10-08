@@ -2,72 +2,92 @@ setwd("~/Documents/GitHub/BikeSharingDemand/R")
 train <- read.csv("../csv/train.csv")
 test <- read.csv("../csv/test.csv")
 
-# Install and load required packages for decision trees and forests
-library(rpart)
-install.packages('randomForest')
-library(randomForest)
-install.packages('party')
-library(party)
+library('party')
+library('randomForest')
 
-# Join together the test and combi sets for easier feature engineering
-test$count <- NA
-test$casual <- NA
-test$registered <- NA
-combi <- rbind(train, test)
+#factorize training set
+train_factor <- train
+train_factor$weather <- factor(train$weather)
+train_factor$holiday <- factor(train$holiday)
+train_factor$workingday <- factor(train$workingday)
+train_factor$season <- factor(train$season)
 
-#this is a naive feature engineering, I think the ranges should be changed
-#TODO: play around with ranges
-combi$temprange <- '0-10'
-combi$temprange[combi$temp > 10 & combi$temp <= 20] <- '10-20'
-combi$temprange[combi$temp > 20 & combi$temp <= 30] <- '20-30'
-combi$temprange[combi$temp > 30] <- '30+'
+#factorize test set
+test_factor <- test
+test_factor$weather <- factor(test$weather)
+test_factor$holiday <- factor(test$holiday)
+test_factor$workingday <- factor(test$workingday)
+test_factor$season <- factor(test$season)
 
-combi$atemprange <- '0-10'
-combi$atemprange[combi$atemp > 10 & combi$atemp <= 20] <- '10-20'
-combi$atemprange[combi$atemp > 20 & combi$atemp <= 30] <- '20-30'
-combi$atemprange[combi$atemp > 30 & combi$atemp <= 40] <- '30-40'
-combi$atemprange[combi$atemp > 40] <- '40+'
+#create time column by stripping out timestamp
+train_factor$time <- substring(train$datetime,12,20)
+test_factor$time <- substring(test$datetime,12,20)
 
-combi$humidityrange <- '0-25'
-combi$humidityrange[combi$humidity > 25 & combi$humidity <= 50] <- '25-50'
-combi$humidityrange[combi$humidity > 50 & combi$humidity <= 75] <- '50-75'
-combi$humidityrange[combi$humidity > 75 & combi$humidity <= 100] <- '75-100'
+#factorize new timestamp column
+train_factor$time <- factor(train_factor$time)
+test_factor$time <- factor(test_factor$time)
 
-combi$windspeedrange <- '0-7'
-combi$windspeedrange[combi$windspeed > 7 & combi$windspeed <= 10] <- '7-10'
-combi$windspeedrange[combi$windspeed > 10 & combi$windspeed <= 13] <- '10-13'
-combi$windspeedrange[combi$windspeed > 13 & combi$windspeed <= 16] <- '13-16'
-combi$windspeedrange[combi$windspeed > 16 & combi$windspeed <= 19] <- '16-19'
-combi$windspeedrange[combi$windspeed > 19 & combi$windspeed <= 30] <- '19-30'
-combi$windspeedrange[combi$windspeed > 30] <- '30+'
+#create day of week column
+train_factor$day <- weekdays(as.Date(train_factor$datetime))
+train_factor$day <- as.factor(train_factor$day)
+test_factor$day <- weekdays(as.Date(test_factor$datetime))
+test_factor$day <- as.factor(test_factor$day)
 
-combi$datetime <- as.character(combi$datetime)
-combi$hour <- sapply(combi$datetime, FUN=function(x) {strsplit(x, split='[ .]')[[1]][2]})
-combi$hour <- sapply(combi$hour, FUN=function(x) {strsplit(x, split='[:.]')[[1]][1]})
+#create Sunday variable
+train_factor$sunday[train_factor$day == "Sunday"] <- "1"
+train_factor$sunday[train_factor$day != "1"] <- "0"
 
-combi$hourrange <- '0-7'
-combi$hourrange[combi$hour > 7 & combi$hour <= 12] <- '7-12'
-combi$hourrange[combi$hour > 12 & combi$hour <= 16] <- '12-16'
-combi$hourrange[combi$hour > 16 & combi$hour <= 20] <- '16-20'
-combi$hourrange[combi$hour > 20] <- '20+'
+test_factor$sunday[test_factor$day == "Sunday"] <- "1"
+test_factor$sunday[test_factor$day != "1"] <- "0"
 
-combi$hourrange <- factor(combi$hourrange)
-combi$temprange <- factor(combi$temprange)
-combi$atemprange <- factor(combi$atemprange)
-combi$humidityrange <- factor(combi$humidityrange)
-combi$windspeedrange <- factor(combi$windspeedrange)
+#convert to factor
+train_factor$sunday <- as.factor(train_factor$sunday)
+test_factor$sunday <- as.factor(test_factor$sunday)
 
-train <- combi[1:10886,]
-test <- combi[10887:17379,]
+#convert time and create $hour as integer to evaluate for daypart
+train_factor$hour<- as.numeric(substr(train_factor$time,1,2))
+test_factor$hour<- as.numeric(substr(test_factor$time,1,2))
 
+#create daypart column, default to 4 to make things easier for ourselves
+train_factor$daypart <- "4"
+test_factor$daypart <- "4"
+
+
+#4AM - 10AM = 1
+train_factor$daypart[(train_factor$hour < 10) & (train_factor$hour > 3)] <- 1
+test_factor$daypart[(test_factor$hour < 10) & (test_factor$hour > 3)] <- 1
+
+
+#11AM - 3PM = 2
+train_factor$daypart[(train_factor$hour < 16) & (train_factor$hour > 9)] <- 2
+test_factor$daypart[(test_factor$hour < 16) & (test_factor$hour > 9)] <- 2
+
+
+#4PM - 9PM = 3
+train_factor$daypart[(train_factor$hour < 22) & (train_factor$hour > 15)] <- 3
+test_factor$daypart[(test_factor$hour < 22) & (test_factor$hour > 15)] <- 3
+
+#convert daypart to factor
+train_factor$daypart <- as.factor(train_factor$daypart)
+test_factor$daypart <- as.factor(test_factor$daypart)
+
+#convert hour back to factor
+train_factor$hour <- as.factor(train_factor$hour)
+test_factor$hour <- as.factor(test_factor$hour)
+
+
+
+#create our formula
+formula <- count ~ season + holiday + workingday + weather + temp + atemp + humidity + hour + daypart + sunday
+
+#build our model
 # Build Random Forest Ensemble
 set.seed(415)
-fit <- randomForest(as.factor(count) ~ hourrange + season + holiday + workingday + weather + temprange + atemprange + windspeedrange + humidityrange,
-                    data=train, importance=TRUE, ntree=500)
+fit <- randomForest(formula, data=train_factor, importance=TRUE, ntree=500)
 
 # Look at variable importance
 varImpPlot(fit)
 # Now let's make a prediction and write a submission file
-Prediction <- predict(fit, test)
+Prediction <- predict(fit, test_factor)
 submit <- data.frame(datetime = test$datetime, count = Prediction)
 write.csv(submit, file = "firstforest.csv", row.names = FALSE)
